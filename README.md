@@ -14,4 +14,7 @@ This repo demonstrates an experimental deployment of IoT Edge runtime 1.2 on K8s
 5. Create K8s image pull secret called "regcred" to allow downloading image from private container registry.
 6. Deploy docker image as a pod in K8s using kedgedeployment.yaml.
 
+### If you want to deploy container directly, use the following syntax:
+docker run -d --name kedge --tmpfs /tmp --tmpfs /run --tmpfs /run/lock -v /var/lib/docker -v /sys/fs/cgroup:/sys/fs/cgroup:ro --privileged youracr.azurecr.io/basekedge:preview
+
 [Add explanation of each step and caveats]
