@@ -47,13 +47,13 @@ In this deployment, prior familiarity with K8s will be needed.
 1. Clone this repo, change directory to this repo, locally.
 2. Update local config.toml with your device connection string/certs (by default populated with pseudo connection string).
 
-**With Privilege Flag:**
+**With Privileged Flag:**
 
 docker build -t aziotedgecontainer .
 
 docker run -d --name kedge --tmpfs /tmp --tmpfs /run --tmpfs /run/lock -v /var/lib/docker -v /sys/fs/cgroup:/sys/fs/cgroup:ro --privileged aziotedgecontainer
 
-**Without  Privilege Flag**
+**Without  Privileged Flag**
 
 docker build -t aziotedgecontainer .
 
