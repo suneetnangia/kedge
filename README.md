@@ -46,15 +46,15 @@ In this deployment, prior familiarity with K8s will be needed.
 
 1. Clone this repo, change directory to this repo, locally.
 2. Update local config.toml with your device connection string/certs (pre-populated with pseudo connection string).
-3. docker build -t <yourimagetag> .
+3. docker build -t &lt;yourimagetag&gt; .
 
 **With Privileged Flag:**
 
-docker run -d --name kedge --tmpfs /tmp --tmpfs /run --tmpfs /run/lock -v /var/lib/docker -v /sys/fs/cgroup:/sys/fs/cgroup:ro --privileged <yourimagetag>
+docker run -d --name kedge --tmpfs /tmp --tmpfs /run --tmpfs /run/lock -v /var/lib/docker -v /sys/fs/cgroup:/sys/fs/cgroup:ro --privileged &lt;yourimagetag&gt;
 
 **Without Privileged Flag**
 
-sudo docker run -d --name kedgenp --tmpfs /tmp --tmpfs /run --tmpfs /run/lock -v /sys/fs/cgroup:/sys/fs/cgroup --security-opt apparmor=unconfined --security-opt seccomp=unconfined --cap-add NET_ADMIN --cap-add SYS_ADMIN <yourimagetag>
+sudo docker run -d --name kedgenp --tmpfs /tmp --tmpfs /run --tmpfs /run/lock -v /sys/fs/cgroup:/sys/fs/cgroup --security-opt apparmor=unconfined --security-opt seccomp=unconfined --cap-add NET_ADMIN --cap-add SYS_ADMIN &lt;yourimagetag&gt;
 
 ## Disclaimer
 
