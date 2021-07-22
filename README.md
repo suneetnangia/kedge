@@ -46,16 +46,16 @@ In this deployment, prior familiarity with K8s will be needed.
 
 1. Clone this repo, change directory to this repo, locally.
 2. Update local config.toml with your device connection string/certs (pre-populated with pseudo connection string).
-3. docker build -t aziotedgecontainer .
+3. docker build -t <yourimagetag> .
 
 **With Privileged Flag:**
 
-docker run -d --name kedge --tmpfs /tmp --tmpfs /run --tmpfs /run/lock -v /var/lib/docker -v /sys/fs/cgroup:/sys/fs/cgroup:ro --privileged aziotedgecontainer
+docker run -d --name kedge --tmpfs /tmp --tmpfs /run --tmpfs /run/lock -v /var/lib/docker -v /sys/fs/cgroup:/sys/fs/cgroup:ro --privileged <yourimagetag>
 
 **Without Privileged Flag**
 
-sudo docker run -d --name kedgenp --tmpfs /tmp --tmpfs /run --tmpfs /run/lock -v /sys/fs/cgroup:/sys/fs/cgroup --security-opt apparmor=unconfined --security-opt seccomp=unconfined --cap-add NET_ADMIN --cap-add SYS_ADMIN aziotedgecontainer
+sudo docker run -d --name kedgenp --tmpfs /tmp --tmpfs /run --tmpfs /run/lock -v /sys/fs/cgroup:/sys/fs/cgroup --security-opt apparmor=unconfined --security-opt seccomp=unconfined --cap-add NET_ADMIN --cap-add SYS_ADMIN <yourimagetag>
 
 ## Disclaimer
 
-This is not an official guidance to run Azure IoT Edge in production.
+Do not use this approach as-is to run Azure IoT Edge in production.
