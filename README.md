@@ -19,8 +19,8 @@ There were a few challenges which were presented during porting of IoT Edge runt
 
 2. **Ringfencing**
 
-   When running Docker in Docker (dind), inner Docker needs certain level of access at the host level e.g. AppArmor. AppArmor is a kernel level module hence it is not virtualized at the container level unlike filesystem, network etc. The simplest solution to this problem was to run hosting container with --privileged flag, which will allow AppArmour service to run inside it, allowing IoT Edge Moby container engine to make use of it. This approach however gives elevated access to the hosting docker container on the host machine resources which is not recommended.
-   When we use --privileged flag for the container, Docker does not use default AppArmor profile (docker-default), a better solution would be define a custom AppArmor profile which permits only a limited set of resources for Docker container which needs to run another docker engine inside it. K8s also support this approach by applying specific AppArmour profiles and Linux capabilities via [pod security policy](https://kubernetes.io/docs/concepts/policy/pod-security-policy/) construct. You can also run IoT Edge container without --privileged flag but it does need additional Linux capabilities which can be further restricted, see deployment section below for details. **This aspect of work is still in-progress.**
+   When running Docker in Docker (dind), inner Docker needs certain level of access at the host level e.g. [AppArmor](https://help.ubuntu.com/community/AppArmor). AppArmor is a kernel level security module hence it is not virtualized at the container level unlike filesystem, network etc. The simplest solution to this problem was to run hosting container with --privileged flag, which will allow AppArmour service to run inside it, allowing IoT Edge Moby container engine to make use of it. This approach however gives elevated access to the hosting docker container on the host machine resources which is not recommended.
+   When we use --privileged flag for the container, Docker does not use default AppArmor profile (docker-default), a better solution would be define a custom AppArmor profile which permits only a limited set of resources for Docker container which needs to run another docker engine inside it. K8s also support this approach by applying specific AppArmour profiles via [App Armor Config](https://kubernetes.io/docs/tutorials/clusters/apparmor/) construct. You can also run IoT Edge container without --privileged flag but it does need additional Linux capabilities which can be further restricted, see deployment section below for details. **This aspect of work is still in-progress.**
 
 ## Deployment
 
@@ -33,7 +33,7 @@ When you build the container image below, it copies the IoT edge config.toml fil
 In this deployment, prior familiarity with K8s will be needed.
 
 1. Clone this repo, change directory to this repo, locally.
-2. Authenticate and connect to existing K8s cluster via cmd 'az aks get-credentials --resource-group myResourceGroup --name myAKSCluster'
+2. Authenticate and connect to existing K8s  (if AKS, via cmd 'az aks get-credentials --resource-group myResourceGroup --name myAKSCluster')
 3. Update config.toml with your device connection string (currently populated with dummy connection string).
 4. Build docker container image (e.g. "docker build -t youracr.azurecr.io/basekedge:preview .").
 5. Update kedgedeployment.yaml with your container registry and image uri.
@@ -45,20 +45,16 @@ In this deployment, prior familiarity with K8s will be needed.
 **Prerequisites:**
 
 1. Clone this repo, change directory to this repo, locally.
-2. Update local config.toml with your device connection string/certs (by default populated with pseudo connection string).
+2. Update local config.toml with your device connection string/certs (pre-populated with pseudo connection string).
+3. docker build -t aziotedgecontainer .
 
 **With Privileged Flag:**
 
-docker build -t aziotedgecontainer .
-
 docker run -d --name kedge --tmpfs /tmp --tmpfs /run --tmpfs /run/lock -v /var/lib/docker -v /sys/fs/cgroup:/sys/fs/cgroup:ro --privileged aziotedgecontainer
 
-**Without  Privileged Flag**
-
-docker build -t aziotedgecontainer .
+**Without Privileged Flag**
 
 sudo docker run -d --name kedgenp --tmpfs /tmp --tmpfs /run --tmpfs /run/lock -v /sys/fs/cgroup:/sys/fs/cgroup --security-opt apparmor=unconfined --security-opt seccomp=unconfined --cap-add NET_ADMIN --cap-add SYS_ADMIN aziotedgecontainer
-
 
 ## Disclaimer
 
