@@ -1,0 +1,12 @@
+[Unit]
+Description=Applies IoT Edge config when container starts.
+# Run this before Azure IoT Edge daemon service is started.
+Before=aziot-edged.service
+[Service]
+Type=simple
+# Run iotedge cmdline tool to apply config changes.
+# It assumes a correct config.toml file is present at "/etc/aziot/config.toml".
+ExecStart=/usr/bin/iotedge config apply
+
+[Install]
+WantedBy=multi-user.target

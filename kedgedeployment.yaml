@@ -16,12 +16,15 @@ spec:
     spec:
       containers:
       - name: kedge
-        image: stdengacrrnd.azurecr.io/kedge:preview1
+        image: suneetnangia/aziotedge:alpha1
         volumeMounts:
         - name: sys-fs-cgroup
           mountPath: /sys/fs/cgroup
         - name: var-lib-docker
           mountPath: /var/lib/docker
+        - name: config-volume
+          mountPath: etc/aziot/config.toml
+          subPath: config.toml
         securityContext:
           privileged: true
       volumes:
@@ -30,5 +33,9 @@ spec:
           path: /sys/fs/cgroup
       - name: var-lib-docker
         emptyDir: {}
-      imagePullSecrets:
-      - name: regcred
+      - name: config-volume
+        configMap:
+          name: iotedge-config
+          items:
+          - key: config.toml
+            path: config.toml

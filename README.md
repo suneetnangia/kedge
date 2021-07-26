@@ -20,41 +20,63 @@ There were a few challenges which were presented during porting of IoT Edge runt
 2. **Ringfencing**
 
    When running Docker in Docker (dind), inner Docker needs certain level of access at the host level e.g. [AppArmor](https://help.ubuntu.com/community/AppArmor). AppArmor is a kernel level security module hence it is not virtualized at the container level unlike filesystem, network etc. The simplest solution to this problem was to run hosting container with --privileged flag, which will allow AppArmour service to run inside it, allowing IoT Edge Moby container engine to make use of it. This approach however gives elevated access to the hosting docker container on the host machine resources which is not recommended.
-   When we use --privileged flag for the container, Docker does not use default AppArmor profile (docker-default), a better solution would be define a custom AppArmor profile which permits only a limited set of resources for Docker container which needs to run another docker engine inside it. K8s also support this approach by applying specific AppArmour profiles via [App Armor Config](https://kubernetes.io/docs/tutorials/clusters/apparmor/) construct. You can also run IoT Edge container without --privileged flag but it does need additional Linux capabilities which can be further restricted, see deployment section below for details. **This aspect of work is still in-progress.**
+   When we use --privileged flag for the container, Docker does not use default AppArmor profile (docker-default), a better solution would be define a custom AppArmor profile which permits only a limited set of resources for Docker container which needs to run another docker engine inside it. K8s also support this approach by applying specific AppArmour profiles via [App Armor Config](https://kubernetes.io/docs/tutorials/clusters/apparmor/) construct. You can also run IoT Edge container without --privileged flag but it does need additional Linux capabilities but again they can be restricted using custom AppArmor profile, see deployment section below for details. **This aspect of work is still in-progress.**
 
-## Deployment
+## Build and Deployment
 
-Note:
+### Build
+Follow steps below to build an Azure IoT Edge container image, but if you do not want to build image yourself, skip to deploy section where you can use a prebuilt image.
+1. Clone Repo:
+   
+   `git clone git@github.com:suneetnangia/kedge.git`
 
-When you build the container image below, it copies the IoT edge config.toml file from local directory to the predefined location in the container image. Please update credentials in the local config.toml file before building image, this will allow image to work as a specific edge device when started. More work is required in this area to allow injection of device credentials via Docker environment variables, current implementation risks exposing connection string if image is leaked, certficates will be more secure option here.
+   `cd kedge`
+2. Build Image: 
+   
+   `docker build -t <yourimagetag> .`
+3. Upload Image: 
+   
+   `docker push <yourimagetag>`
 
-### Follow the steps below to deploy IoT Edge runtime along with a stock temperature sensor module to the existing K8s cluster as a pod
+### Deploy
+Keep the connection string of Azure IoT Hub edge device ready, we will need it when configuring edge device on Azure IoT Edge runtime.
 
-In this deployment, prior familiarity with K8s will be needed.
+#### **On K8s:**
+Note: In this deployment, a prior familiarity with K8s is needed. Also, we use [ConfigMap](https://kubernetes.io/docs/concepts/configuration/configmap/) for storing IoT Edge device configuration but you may want to use [Secrets](https://kubernetes.io/docs/concepts/configuration/secret/) to make it more secure.
 
-1. Clone this repo, change directory to this repo, locally.
-2. Authenticate and connect to existing K8s  (if AKS, via cmd 'az aks get-credentials --resource-group myResourceGroup --name myAKSCluster')
-3. Update config.toml with your device connection string (currently populated with dummy connection string).
-4. Build docker container image (e.g. "docker build -t youracr.azurecr.io/basekedge:preview .").
-5. Update kedgedeployment.yaml with your container registry and image uri.
-6. Create K8s image pull secret called "regcred" to allow downloading image from private container registry.
-7. Deploy docker image as a pod in K8s using kedgedeployment.yaml.
+1. Authenticate and connect to existing K8s (if AKS, via cmd `az aks get-credentials --resource-group myResourceGroup --name myAKSCluster`)
+2. Update config.toml with your edge device connection string (currently populated with dummy connection string).
+3. Create ConfigMap to hold Azure IoT Edge configuration (config.toml content):
 
-### Alternatively, if you want to run container directly on Ubuntu (WSL/2 is not supported), use the following command lines
+   `kubectl create configmap iotedge-config --from-file=config.toml`
+4. Optionally, update kedgedeployment.yaml with your container image uri (from Build step above) otherwise it will use a [prebuilt](https://hub.docker.com/repository/registry-1.docker.io/suneetnangia/aziotedge) image from Docker Hub.
+5. Deploy docker image as a pod:
 
-**Prerequisites:**
+   `kubectl apply -f .\kedgedeployment.yaml`
+6. Check if Pod (`kedge-deployment-<generated id>`) is created and running:
 
-1. Clone this repo, change directory to this repo, locally.
-2. Update local config.toml with your device connection string/certs (pre-populated with pseudo connection string).
-3. docker build -t &lt;yourimagetag&gt; .
+   `kubectl get pods`
 
-**With Privileged Flag:**
+7. Check IoT Edge runtime services by logging into the container:
 
-docker run -d --name kedge --tmpfs /tmp --tmpfs /run --tmpfs /run/lock -v /var/lib/docker -v /sys/fs/cgroup:/sys/fs/cgroup:ro --privileged &lt;yourimagetag&gt;
+   `kubectl exec --stdin --tty <your-pod-name> /bin/bash`
 
-**Without Privileged Flag**
+   Once you are inside the container, you can run usual IoT Edge runtime checks.
 
-sudo docker run -d --name kedgenp --tmpfs /tmp --tmpfs /run --tmpfs /run/lock -v /sys/fs/cgroup:/sys/fs/cgroup --security-opt apparmor=unconfined --security-opt seccomp=unconfined --cap-add NET_ADMIN --cap-add SYS_ADMIN &lt;yourimagetag&gt;
+#### **On Ubuntu Machine (WSL/2 is not supported):**
+
+#### Setup IoT Edge Configuration:
+1. Copy config.toml to the Linux machine (at /etc/aziot-init/config.toml) where you want to run IoT Edge Runtime container.
+2. On the Linux machine, update config.toml with the IoT Edge device credentials (e.g. edge device connection string).
+3. Optionally, replace image name 'suneetnangia/aziotedge:alpha1' in the below cmds with your image tag from Build step above.
+
+#### Run With Privileged Flag
+
+`sudo docker run -d --name kedge --tmpfs /tmp --tmpfs /run --tmpfs /run/lock -v /var/lib/docker -v /sys/fs/cgroup:/sys/fs/cgroup:ro -v /etc/aziot-init/config.toml:/etc/aziot/config.toml --privileged suneetnangia/aziotedge:alpha1`
+
+#### Run Without Privileged Flag:
+
+`sudo docker run -d --name kedgenp --tmpfs /tmp --tmpfs /run --tmpfs /run/lock -v /sys/fs/cgroup:/sys/fs/cgroup -v /etc/aziot-init/config.toml:/etc/aziot/config.toml --security-opt apparmor=unconfined --security-opt seccomp=unconfined --cap-add NET_ADMIN --cap-add SYS_ADMIN suneetnangia/aziotedge:alpha1`
 
 ## Disclaimer
 
