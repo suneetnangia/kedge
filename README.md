@@ -19,35 +19,46 @@ There were a few challenges which were presented during porting of IoT Edge runt
 
 2. **Ringfencing**
 
-   When running Docker in Docker (dind), inner Docker needs certain level of access at the host level e.g. [AppArmor](https://help.ubuntu.com/community/AppArmor). AppArmor is a kernel level security module hence it is not virtualized at the container level unlike filesystem, network etc. The simplest solution to this problem was to run hosting container with --privileged flag, which will allow AppArmour service to run inside it, allowing IoT Edge Moby container engine to make use of it. This approach however gives elevated access to the hosting docker container on the host machine resources which is not recommended.
-   When we use --privileged flag for the container, Docker does not use default AppArmor profile (docker-default), a better solution would be define a custom AppArmor profile which permits only a limited set of resources for Docker container which needs to run another docker engine inside it. K8s also support this approach by applying specific AppArmour profiles via [App Armor Config](https://kubernetes.io/docs/tutorials/clusters/apparmor/) construct. You can also run IoT Edge container without --privileged flag but it does need additional Linux capabilities but again they can be restricted using custom AppArmor profile, see deployment section below for details. **This aspect of work is still in-progress.**
+   When running Docker in Docker (dind) without [rootless](https://docs.docker.com/engine/security/rootless/) mode, Docker engine makes use of Linux kernel level security module called [AppArmor](https://help.ubuntu.com/community/AppArmor). As AppArmor is a kernel level security module and kernel is not virtualized in containers, the container which host IoT Edge runtime needs to ensure it can access AppArmor service of the Linux parent machine.
+   The simplest solution to this problem is to run IoT Edge runtime hosting container with a --privileged flag, which will allow AppArmour service to run inside it, accessing parent machine's kernel module and allowing IoT Edge Moby container engine to make use of it. This approach however gives elevated access to the IoT Edge runtime hosting container to the host machine resources which is not recommended.
+   Docker engine creates a default AppArmor profile (docker-default) and attach this profile for every container it starts unless it is overridden by a custom profile explicitly. When we use --privileged flag for the container, Docker engine does not attach any AppArmor profile, leaving the container as a high risk process on the parent machine.
+   There's another Linux kernel level security feature called [SecComp](https://docs.docker.com/engine/security/seccomp/) which is used to restrict the actions available to the code inside the containers. You can restrict what actions are allowed from the container e.g. calls to mount/unmount or access to certain directories. Similar to AppArmor, Docker engine creates a default SecComp profile and attach this profile for every container it starts unless it is overridden by a custom profile explicitly. When we use --privileged flag for the container, Docker engine does not attach any SecComp profile, leaving the container as a high risk process on the parent machine.
+
+   A better solution to the above challenges would be define a custom AppArmor and SecComp profile derived from the default profiles, which permits access to the a limited set of resources on the Linux parent machine. These profiles are available to use in this repo as `aziot-aa-profile.conf` and `aziot-sc-profile.json`.
+
+   As a side note, K8s also support this approach by applying specific AppArmour and SecComp profiles via [App Armor Config](https://kubernetes.io/docs/tutorials/clusters/apparmor/) and [SecComp Config](https://kubernetes.io/docs/tutorials/clusters/seccomp/) constructs respectively.
 
 ## Build and Deployment
 
 ### Build
+
 Follow steps below to build an Azure IoT Edge container image, but if you do not want to build image yourself, skip to deploy section where you can use a prebuilt image.
+
 1. Clone Repo:
-   
+
    `git clone git@github.com:suneetnangia/kedge.git`
 
    `cd kedge`
-2. Build Image: 
-   
+2. Build Image:
+
    `docker build -t <yourimagetag> .`
-3. Upload Image: 
-   
+3. Upload Image:
+
    `docker push <yourimagetag>`
 
 ### Deploy
+
 Keep the connection string of Azure IoT Hub edge device ready, we will need it when configuring edge device on Azure IoT Edge runtime.
 
 #### **On K8s:**
+
+[TODO: Update deployment manifest to use custom AppArmor and SecComp profiles]
+
 Note: In this deployment, a prior familiarity with K8s is needed. Also, we use [ConfigMap](https://kubernetes.io/docs/concepts/configuration/configmap/) for storing IoT Edge device configuration but you may want to use [Secrets](https://kubernetes.io/docs/concepts/configuration/secret/) to make it more secure.
 
 1. Authenticate and connect to existing K8s (if AKS, via cmd `az aks get-credentials --resource-group myResourceGroup --name myAKSCluster`)
 2. Update config.toml with your edge device connection string (currently populated with dummy connection string).
 3. Create ConfigMap to hold Azure IoT Edge configuration (config.toml content):
-
    `kubectl create configmap iotedge-config --from-file=config.toml`
 4. Optionally, update kedgedeployment.yaml with your container image uri (from Build step above) otherwise it will use a [prebuilt](https://hub.docker.com/repository/registry-1.docker.io/suneetnangia/aziotedge) image from Docker Hub.
 5. Deploy docker image as a pod:
@@ -65,18 +76,21 @@ Note: In this deployment, a prior familiarity with K8s is needed. Also, we use [
 
 #### **On Ubuntu Machine (WSL/2 is not supported):**
 
-#### Setup IoT Edge Configuration:
-1. Copy config.toml to the Linux machine (at /etc/aziot-init/config.toml) where you want to run IoT Edge Runtime container.
-2. On the Linux machine, update config.toml with the IoT Edge device credentials (e.g. edge device connection string).
+#### Setup IoT Edge Configuration
+
+1. Copy config.toml to the parent Linux machine (at /etc/aziot-init/config.toml) where you want to run IoT Edge Runtime container.
+2. On the parent Linux machine, update config.toml with the IoT Edge device credentials (e.g. edge device connection string).
 3. Optionally, replace image name 'suneetnangia/aziotedge:alpha1' in the below cmds with your image tag from Build step above.
 
-#### Run With Privileged Flag
-
-`sudo docker run -d --name kedge --tmpfs /tmp --tmpfs /run --tmpfs /run/lock -v /var/lib/docker -v /sys/fs/cgroup:/sys/fs/cgroup:ro -v /etc/aziot-init/config.toml:/etc/aziot/config.toml --privileged suneetnangia/aziotedge:alpha1`
-
-#### Run Without Privileged Flag:
+#### Run Without AppArmor/SecComp
 
 `sudo docker run -d --name kedgenp --tmpfs /tmp --tmpfs /run --tmpfs /run/lock -v /sys/fs/cgroup:/sys/fs/cgroup -v /etc/aziot-init/config.toml:/etc/aziot/config.toml --security-opt apparmor=unconfined --security-opt seccomp=unconfined --cap-add NET_ADMIN --cap-add SYS_ADMIN suneetnangia/aziotedge:alpha1`
+
+#### Run With AppArmor/SecComp
+
+Before you run the below cmd, please see [here](https://docs.docker.com/engine/security/apparmor/) to deploy custom SecComp `aziot-sc-profile.json` profile on the parent Linux machine.
+
+`sudo docker run -d --name kedgenp --tmpfs /tmp --tmpfs /run --tmpfs /run/lock -v /sys/fs/cgroup:/sys/fs/cgroup -v /etc/aziot-init/config.toml:/etc/aziot/config.toml --security-opt apparmor=docker-aziotedge --security-opt seccomp=./aziot-sc-profile.json --cap-add NET_ADMIN --cap-add SYS_ADMIN suneetnangia/aziotedge:alpha1`
 
 ## Disclaimer
 
