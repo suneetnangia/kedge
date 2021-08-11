@@ -52,7 +52,7 @@ Keep the connection string of Azure IoT Hub edge device ready, we will need it w
 
 #### **On K8s:**
 
-[TODO: Update deployment manifest to use custom AppArmor and SecComp profiles]
+[TODO: Update deployment manifest to use custom AppArmor and SecComp profiles, the way they are configured is being changes in K8s.]
 
 Note: In this deployment, a prior familiarity with K8s is needed. Also, we use [ConfigMap](https://kubernetes.io/docs/concepts/configuration/configmap/) for storing IoT Edge device configuration but you may want to use [Secrets](https://kubernetes.io/docs/concepts/configuration/secret/) to make it more secure.
 
@@ -88,7 +88,7 @@ Note: In this deployment, a prior familiarity with K8s is needed. Also, we use [
 
 #### Run With AppArmor/SecComp
 
-Before you run the below cmd, please see [here](https://docs.docker.com/engine/security/apparmor/) to deploy custom SecComp `aziot-sc-profile.json` profile on the parent Linux machine.
+Before you run the below cmd, please see [here](https://docs.docker.com/engine/security/apparmor/) to deploy custom AppArmor `aziot-aa-profile.conf` profile on the parent Linux machine. Regarding SecComp profile, it just needs to be present at the path specified in the Docker run command.
 
 `sudo docker run -d --name kedgenp --tmpfs /tmp --tmpfs /run --tmpfs /run/lock -v /sys/fs/cgroup:/sys/fs/cgroup -v /etc/aziot-init/config.toml:/etc/aziot/config.toml --security-opt apparmor=docker-aziotedge --security-opt seccomp=./aziot-sc-profile.json --cap-add NET_ADMIN --cap-add SYS_ADMIN suneetnangia/aziotedge:alpha1`
 
