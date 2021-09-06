@@ -52,7 +52,7 @@ Keep the connection string of Azure IoT Hub edge device ready, we will need it w
 
 #### **On K8s:**
 
-[TODO: Update deployment manifest to use custom AppArmor and SecComp profiles, the way they are configured is being changes in K8s.]
+[TODO: Update deployment manifest to use custom AppArmor and SecComp profiles, the way they are configured is being changed in K8s.]
 
 Note: In this deployment, a prior familiarity with K8s is needed. Also, we use [ConfigMap](https://kubernetes.io/docs/concepts/configuration/configmap/) for storing IoT Edge device configuration but you may want to use [Secrets](https://kubernetes.io/docs/concepts/configuration/secret/) to make it more secure.
 
